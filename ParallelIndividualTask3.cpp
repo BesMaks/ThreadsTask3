@@ -1,53 +1,59 @@
-﻿#include <cmath>
+#include <cmath>
 #include <windows.h>
 #include <thread>
 #include <mutex>
 #include <math.h>
 using namespace std;
 
-mutex mtx;
-
-const double overall_timeD = 500.0;
+const double overall_timeD = 300.0;
 const int fps = 30;
 const double overall_frames = 2000;
 const int frame_timing = overall_frames / fps;
 
-const double defender_speed = 8;
-const double striker_horizontal_speed = 8;
+const double defender_speed = 14;
+const double striker_horizontal_speed = 7;
 const double striker_vertical_speed = striker_horizontal_speed * 2;
-double ball_speed = 6;
+const double ball_speed = 15.0;
 
 bool ball_launched = 0;
+bool ballOwner = 0;
+bool ballIsInGoal = 0;
 const int player_size = 40;
-const int ball_size = 20;
+const int ball_size = 15;
 
 double defender_position_x = 300.0;
-double defender_position_y = 300.0;
+double defender_position_y = 600.0;
 double striker_position_x = 1.0;
 double striker_position_y = 250.0;
-double goalkeeper_position_x = 720.0;
+double goalkeeper_position_x = 680.0;
 double goalkeeper_position_y = 350.0;
 double ball_position_x = striker_position_x;
 double ball_position_y = striker_position_y + ball_size * 3;
 
-char key_code[] = "";
 unsigned int key;
 LONG CALLBACK WINAPI WndProc(HWND, UINT, WPARAM, LPARAM);
 MSG lpMsg;
 
 double goalPossibility() {
-	return (double)striker_position_x / 800.0;
+	return (double)striker_position_x / 700.0;
+}
+bool defenderTakesBall() {
+	if (
+		abs(ball_position_x - defender_position_x) < 2 * ball_size &&
+		abs(ball_position_y - defender_position_y) < 2 * ball_size
+		) return 1;
+	return 0;
 }
 void moveStriker() {
-	//double launchDistance = (double)(rand() % 450);
-	double launchDistance = 450;
+	srand(time(NULL));
+	double launchDistance = (double)(rand() % 400 + 150);
 	for (int j = 0; j < overall_timeD; j++) {
 		if (striker_position_x < launchDistance) {
 			striker_position_x += striker_horizontal_speed;
-			striker_position_y += striker_vertical_speed * sin(j / 3) * 3;
+			striker_position_y += striker_vertical_speed * sin(j / (rand() % 2 + 0.7)) * 3;
 		}
 		else {
-			ball_launched = 1;
+			if (!ballOwner)	ball_launched = 1;
 			break;
 		}
 		Sleep(frame_timing);
@@ -55,7 +61,6 @@ void moveStriker() {
 }
 void moveDefender() {
 	for (int j = 0; j < overall_timeD; j++) {
-		mtx.lock();
 		switch (key)
 		{
 		case VK_LEFT:
@@ -74,43 +79,81 @@ void moveDefender() {
 			key = 2;
 			break;
 		}
-		mtx.unlock();
 		Sleep(frame_timing);
 	}
 }
-void moveBall() {
-	for (int j = 0; j < overall_timeD; j++) {
-		if (!ball_launched) {
-			ball_position_x = striker_position_x + (2 * player_size);
-			ball_position_y = striker_position_y + (2 * player_size);
-		}
-		else {
-			// прямая между точками (striker_position_x, striker_position_y) и приблизительной серединой ворот(790, 400)
-			double x1 = (double)striker_position_x; double y1 = (double)striker_position_y;
-			double x2 = 790.0; double y2 = 400.0;
+void moveBallBeforeLaunch() {
+	if (!ballOwner) {
+		ball_position_x = striker_position_x + (2.5 * ball_size);
+		ball_position_y = striker_position_y + (2.5 * ball_size);
+	}
+	else {
+		ball_position_x = defender_position_x + (2.5 * ball_size);
+		ball_position_y = defender_position_y + (2.5 * ball_size);
+	}
+}
+void moveBallAfterLaunch() {
+	if (!ballOwner && !ballIsInGoal) {
+		// прямая между точками (striker_position_x, striker_position_y) и приблизительной серединой ворот(790, 400)
+		double x1 = (double)striker_position_x; double y1 = (double)striker_position_y;
+		double x2 = 790.0; double y2 = 400.0;
 
-			ball_position_x += ball_speed;
-			ball_position_y = (y2 - y1) * (ball_position_x - x1) / (x2 - x1) + y1;
+		ball_position_x += ball_speed;
+		ball_position_y = (y2 - y1) * (ball_position_x - x1) / (x2 - x1) + y1;
+	}
+}
+void limitBall() {
+	if (ball_position_x > 800 - 1.5 * player_size) {
+		ball_position_x = 800 - 1.5 * player_size;
+		ballIsInGoal = 1;
+	}
+	if (ball_position_y > 800 - 1.5 * player_size) ball_position_y = 800 - 1.5 * player_size;
+	if (ball_position_x < 1.5 * player_size) ball_position_x = 1.5 * player_size;
+	if (ball_position_y < 1.5 * player_size) ball_position_y = 1.5 * player_size;
+}
+bool goalkeeperKeepsBall() {
+	if (abs(ball_position_x - goalkeeper_position_x) < 1.5 * ball_size
+		&&
+		abs(ball_position_y - goalkeeper_position_y) < 1.5 * ball_size
+		) return 1;
+	return 0;
+}
+void moveBall() {
+	//0 -> striker, 1 -> defender
+	for (int j = 0; j < overall_timeD; j++) {
+		limitBall();
+
+		if (defenderTakesBall() && !ballOwner)
+			ballOwner = 1;
+
+		if (!ball_launched)	moveBallBeforeLaunch();
+		else {
+			if (!goalkeeperKeepsBall())
+				moveBallAfterLaunch();
 		}
+
 		Sleep(frame_timing);
 	}
 }
 void moveGoalkeeper() {
 	double launchDistance = (double)(rand() % 450);
 	for (int j = 0; j < overall_timeD; j++) {
-		if (striker_position_x < launchDistance) {
-			ball_launched = 0;
-			striker_position_x += striker_horizontal_speed;
-			striker_position_y += striker_vertical_speed * sin(j / 3) * 3;
-		}
-		else {
-			ball_launched = 1;
-			break;
+		if (ball_launched) {
+			if (goalkeeperKeepsBall() || ballIsInGoal) break;
+			srand(time(NULL));
+			double pos = goalPossibility();
+			//генерация случайной вероятности
+			double correctMovement = rand() % 5 * 1.234 / 7.995;
+
+			if (correctMovement > pos)
+				if (ball_position_y > goalkeeper_position_y) {
+					goalkeeper_position_y += abs(ball_position_y - goalkeeper_position_y) / 2;
+				}
+				else goalkeeper_position_y -= abs(ball_position_y - goalkeeper_position_y) / 2;
 		}
 		Sleep(frame_timing);
 	}
 }
-
 void RenderStriker(HDC hdc) {
 
 	HBRUSH hBrush = CreateSolidBrush(RGB(0, 150, 200));
@@ -138,7 +181,7 @@ void RenderDefender(HDC hdc) {
 	DeleteObject(hpen);
 }
 void RenderGoalkeeper(HDC hdc) {
-	HBRUSH hBrush = CreateSolidBrush(RGB(50, 200, 200));
+	HBRUSH hBrush = CreateSolidBrush(RGB(220, 100, 50));
 	HPEN hpen = CreatePen(PS_SOLID, 0, RGB(0, 0, 0));
 
 	SelectObject(hdc, hBrush);
@@ -160,13 +203,13 @@ void RenderGoal(HDC hdc) {
 	Rectangle(hdc, 700, 580, 800, 620);
 
 	//черта пенальти
-	Rectangle(hdc, 500, -1, 520, 801);
+	//Rectangle(hdc, 500, -1, 520, 801);
 
 	DeleteObject(hBrush);
 	DeleteObject(hpen);
 }
 void RenderBall(HDC hdc) {
-	HBRUSH hBrush = CreateSolidBrush(RGB(100, 100, 100));
+	HBRUSH hBrush = CreateSolidBrush(RGB(rand() % 255, rand() % 255, rand() % 255));
 	HPEN hpen = CreatePen(PS_SOLID, 0, RGB(0, 0, 0));
 
 	SelectObject(hdc, hBrush);
@@ -195,25 +238,27 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		CreateWindow(L"My Class", L"Футбол", WS_OVERLAPPEDWINDOW,
 			370, 15, 800, 800, NULL, NULL, hInstance, NULL);
 
-	ShowWindow(hwnd, nCmdShow);
 	srand(time(NULL));
+	ShowWindow(hwnd, nCmdShow);
 	thread defenderTH(moveDefender);
 	thread strikerTH(moveStriker);
 	thread ballTH(moveBall);
+	thread goalkeeperTH(moveGoalkeeper);
 
 	defenderTH.detach();
 	strikerTH.detach();
 	ballTH.detach();
+	goalkeeperTH.detach();
 
 	for (int i = 0; i < overall_timeD; i++) {
 		InvalidateRect(hwnd, 0, 1);
 		UpdateWindow(hwnd);
 		Sleep(frame_timing);
 
-		GetMessage(&lpMsg, NULL, 0, 0);
+		PeekMessage(&lpMsg, NULL, 0, 0, PM_REMOVE);
 		TranslateMessage(&lpMsg);
 		DispatchMessage(&lpMsg);
-		
+
 	}
 	Sleep(frame_timing * 40);
 }
@@ -229,8 +274,8 @@ LONG WINAPI WndProc(HWND hwnd, UINT Message, WPARAM wparam, LPARAM lparam) {
 		RenderGoal(hdc);
 		RenderDefender(hdc);
 		RenderStriker(hdc);
-		RenderBall(hdc);
 		RenderGoalkeeper(hdc);
+		RenderBall(hdc);
 		EndPaint(hwnd, &ps);
 		break;
 	case WM_KEYDOWN:
