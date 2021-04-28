@@ -6,12 +6,12 @@
 using namespace std;
 
 const double overall_timeD = 300.0;
-const int fps = 30;
-const double overall_frames = 2000;
+const int fps = 40;
+const double overall_frames = 1900;
 const int frame_timing = overall_frames / fps;
 
-const double defender_speed = 14;
-const double striker_horizontal_speed = 7;
+const double defender_speed = 18.0;
+const double striker_horizontal_speed = 7.0;
 const double striker_vertical_speed = striker_horizontal_speed * 2;
 const double ball_speed = 15.0;
 
@@ -26,7 +26,7 @@ double defender_position_y = 600.0;
 double striker_position_x = 1.0;
 double striker_position_y = 250.0;
 double goalkeeper_position_x = 680.0;
-double goalkeeper_position_y = 350.0;
+double goalkeeper_position_y = 550.0;
 double ball_position_x = striker_position_x;
 double ball_position_y = striker_position_y + ball_size * 3;
 
@@ -46,7 +46,7 @@ bool defenderTakesBall() {
 }
 void moveStriker() {
 	srand(time(NULL));
-	double launchDistance = (double)(rand() % 400 + 150);
+	double launchDistance = (double)(rand() % 500 + 150);
 	for (int j = 0; j < overall_timeD; j++) {
 		if (striker_position_x < launchDistance) {
 			striker_position_x += striker_horizontal_speed;
@@ -84,12 +84,12 @@ void moveDefender() {
 }
 void moveBallBeforeLaunch() {
 	if (!ballOwner) {
-		ball_position_x = striker_position_x + (2.5 * ball_size);
-		ball_position_y = striker_position_y + (2.5 * ball_size);
+		ball_position_x = striker_position_x + (2 * ball_size);
+		ball_position_y = striker_position_y + (2 * ball_size);
 	}
 	else {
-		ball_position_x = defender_position_x + (2.5 * ball_size);
-		ball_position_y = defender_position_y + (2.5 * ball_size);
+		ball_position_x = defender_position_x + (2 * ball_size);
+		ball_position_y = defender_position_y + (2 * ball_size);
 	}
 }
 void moveBallAfterLaunch() {
@@ -112,9 +112,9 @@ void limitBall() {
 	if (ball_position_y < 1.5 * player_size) ball_position_y = 1.5 * player_size;
 }
 bool goalkeeperKeepsBall() {
-	if (abs(ball_position_x - goalkeeper_position_x) < 1.5 * ball_size
+	if (abs(ball_position_x - goalkeeper_position_x) < player_size*1.25
 		&&
-		abs(ball_position_y - goalkeeper_position_y) < 1.5 * ball_size
+		abs(ball_position_y - goalkeeper_position_y) < player_size*1.25
 		) return 1;
 	return 0;
 }
@@ -162,7 +162,7 @@ void RenderStriker(HDC hdc) {
 	SelectObject(hdc, hBrush);
 	SelectObject(hdc, hpen);
 
-	Ellipse(hdc, striker_position_x, striker_position_y, 2 * player_size + striker_position_x, 2 * player_size + striker_position_y);
+	Ellipse(hdc, striker_position_x - player_size, striker_position_y - player_size, player_size + striker_position_x, player_size + striker_position_y);
 
 	DeleteObject(hBrush);
 	DeleteObject(hpen);
@@ -175,7 +175,7 @@ void RenderDefender(HDC hdc) {
 	SelectObject(hdc, hBrush);
 	SelectObject(hdc, hpen);
 
-	Ellipse(hdc, defender_position_x, defender_position_y, 2 * player_size + defender_position_x, 2 * player_size + defender_position_y);
+	Ellipse(hdc, defender_position_x - player_size, defender_position_y - player_size, player_size + defender_position_x, player_size + defender_position_y);
 
 	DeleteObject(hBrush);
 	DeleteObject(hpen);
@@ -187,7 +187,7 @@ void RenderGoalkeeper(HDC hdc) {
 	SelectObject(hdc, hBrush);
 	SelectObject(hdc, hpen);
 
-	Ellipse(hdc, goalkeeper_position_x, goalkeeper_position_y, 2 * player_size + goalkeeper_position_x, 2 * player_size + goalkeeper_position_y);
+	Ellipse(hdc, goalkeeper_position_x - player_size, goalkeeper_position_y - player_size, player_size + goalkeeper_position_x, player_size + goalkeeper_position_y);
 
 	DeleteObject(hBrush);
 	DeleteObject(hpen);
@@ -203,7 +203,11 @@ void RenderGoal(HDC hdc) {
 	Rectangle(hdc, 700, 580, 800, 620);
 
 	//черта пенальти
-	//Rectangle(hdc, 500, -1, 520, 801);
+	HBRUSH hBrush1 = CreateSolidBrush(RGB(255, 255, 255));
+	SelectObject(hdc, hBrush1);
+	Rectangle(hdc, 500, 100, 520, 700);
+	Rectangle(hdc, 500, 100, 800, 120);
+	Rectangle(hdc, 500, 680, 800, 700);
 
 	DeleteObject(hBrush);
 	DeleteObject(hpen);
